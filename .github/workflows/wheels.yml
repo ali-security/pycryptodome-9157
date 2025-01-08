@@ -2,8 +2,6 @@ name: Wheels
 
 on:
   push:
-    tags:
-    - '*'
 
 jobs:
   build_wheels:
@@ -14,14 +12,12 @@ jobs:
       CIBW_TEST_SKIP: "*"
     strategy:
       matrix:
-        os: [ubuntu-18.04, windows-latest, macos-10.15]
-
-    if: github.actor == 'Legrandin'
+        os: [ubuntu-20.04, windows-2022, macos-13]
 
     steps:
       - uses: actions/checkout@v2
 
-      - uses: actions/setup-python@v2
+      - uses: MatteoH2O1999/setup-python@v4
         name: Install Python
         with:
           python-version: '3.10'
@@ -62,9 +58,9 @@ jobs:
           DISTUTILS_USE_SDK: 1
           MSSdk: 1
 
-      - uses: actions/upload-artifact@v2
+      - uses: actions/upload-artifact@v4
         with:
-          name: wheels
+          name: ${{ matrix.os }}
           path: ./wheelhouse/*.whl
 
   test_wheels:
@@ -72,38 +68,39 @@ jobs:
     needs: build_wheels
     runs-on: ${{ matrix.os }}
     strategy:
+      fail-fast: false
       matrix:
-        os: [ubuntu-18.04, windows-latest, macos-10.15]
+        os: [ubuntu-20.04, windows-2022, macos-13]
         python-version: ['2.7', '3.6', '3.7', '3.8', '3.9', '3.10', 'pypy-2.7', 'pypy-3.6']
         exclude:
-          - {os: "windows-latest", python-version: "pypy-2.7"}
-
-    if: github.actor == 'Legrandin'
+          - {os: "windows-2022", python-version: "pypy-2.7"}
+          - {os: "windows-2022", python-version: "pypy-3.6"}
+          - {os: "macos-13", python-version: "2.7"}  # we can't test that because the runner is using ARM
+          - {os: "macos-13", python-version: "3.6"}
+          - {os: "macos-13", python-version: "3.7"}
+          - {os: "macos-13", python-version: "3.8"}
+          - {os: "macos-13", python-version: "3.9"}
+          - {os: "macos-13", python-version: "3.10"}
+          - {os: "macos-13", python-version: "pypy-2.7"}
+          - {os: "macos-13", python-version: "pypy-3.6"}
 
     steps:
       - uses: actions/checkout@v2
 
       - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v2
+        uses: MatteoH2O1999/setup-python@v4
         with:
           python-version: ${{ matrix.python-version }}
 
       - name: Display Python version
         run: python -c "from __future__ import print_function; import sys; print(sys.version)"
 
-      - uses: actions/download-artifact@v2
+      - uses: actions/download-artifact@v4
         with:
-          name: wheels
+          name: ${{ matrix.os }}
           path: wheels/
 
-      - name: Install and test pycryptodome wheel
-        if: endsWith(github.ref, 'x') == false
-        run: |
-          pip install pycryptodome --no-index -f wheels/
-          python -m Crypto.SelfTest --skip-slow-tests
-
       - name: Install pycryptodomex wheel
-        if: endsWith(github.ref, 'x') == true
         run: |
           pip install pycryptodomex --no-index -f wheels/
           python -m Cryptodome.SelfTest --skip-slow-tests
